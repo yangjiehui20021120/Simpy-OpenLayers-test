@@ -173,12 +173,12 @@ function initMap() {
 
     // 创建视图
     const view = new ol.View({
-        center: [35, 20],  // 车间中心
+        center: [60, 20],  // 车间中心（调整为新的车间中心）
         zoom: 2,
         projection: new ol.proj.Projection({
             code: 'WORKSHOP',
             units: 'meters',
-            extent: [0, 0, 70, 40]
+            extent: [0, 0, 120, 40]  // 扩展车间范围以容纳9个工位
         })
     });
 
@@ -394,7 +394,18 @@ function updateWorkstationUtilization(utilization) {
     const container = document.getElementById('workstationStats');
     container.innerHTML = '';
 
-    const workstationNames = ['工位1 - 粗加工', '工位2 - 精加工', '工位3 - 质检'];
+    // 9个工位的名称
+    const workstationNames = [
+        '工位1-预处理',
+        '工位2-粗加工A',
+        '工位3-粗加工B',
+        '工位4-精加工A',
+        '工位5-精加工B',
+        '工位6-组装',
+        '工位7-质检A',
+        '工位8-质检B',
+        '工位9-包装'
+    ];
 
     utilization.forEach((util, index) => {
         const div = document.createElement('div');

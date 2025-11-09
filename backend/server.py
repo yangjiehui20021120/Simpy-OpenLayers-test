@@ -69,7 +69,7 @@ async def get_app_js():
 
 @app.get("/api/workshop-layout")
 async def get_workshop_layout():
-    """获取车间布局数据（GeoJSON格式）"""
+    """获取车间布局数据（GeoJSON格式）- 9个工位，包含并列工序和公用缓存区"""
     layout = {
         "type": "FeatureCollection",
         "features": [
@@ -84,20 +84,21 @@ async def get_workshop_layout():
                     "type": "Polygon",
                     "coordinates": [[
                         [0, 0],
-                        [70, 0],
-                        [70, 40],
+                        [120, 0],
+                        [120, 40],
                         [0, 40],
                         [0, 0]
                     ]]
                 }
             },
-            # 工位1
+            # === 工位定义 ===
+            # 工位1 - 预处理
             {
                 "type": "Feature",
                 "properties": {
                     "type": "workstation",
                     "id": 0,
-                    "name": "工位1 - 粗加工",
+                    "name": "工位1-预处理",
                     "status": "idle"
                 },
                 "geometry": {
@@ -105,41 +106,126 @@ async def get_workshop_layout():
                     "coordinates": [10, 20]
                 }
             },
-            # 工位2
+            # 工位2 - 粗加工A（并列）
             {
                 "type": "Feature",
                 "properties": {
                     "type": "workstation",
                     "id": 1,
-                    "name": "工位2 - 精加工",
+                    "name": "工位2-粗加工A",
                     "status": "idle"
                 },
                 "geometry": {
                     "type": "Point",
-                    "coordinates": [30, 20]
+                    "coordinates": [30, 30]
                 }
             },
-            # 工位3
+            # 工位3 - 粗加工B（并列）
             {
                 "type": "Feature",
                 "properties": {
                     "type": "workstation",
                     "id": 2,
-                    "name": "工位3 - 质检",
+                    "name": "工位3-粗加工B",
                     "status": "idle"
                 },
                 "geometry": {
                     "type": "Point",
-                    "coordinates": [50, 20]
+                    "coordinates": [30, 10]
                 }
             },
-            # 缓冲区1
+            # 工位4 - 精加工A（并列）
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "workstation",
+                    "id": 3,
+                    "name": "工位4-精加工A",
+                    "status": "idle"
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [50, 30]
+                }
+            },
+            # 工位5 - 精加工B（并列）
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "workstation",
+                    "id": 4,
+                    "name": "工位5-精加工B",
+                    "status": "idle"
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [50, 10]
+                }
+            },
+            # 工位6 - 组装
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "workstation",
+                    "id": 5,
+                    "name": "工位6-组装",
+                    "status": "idle"
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [70, 20]
+                }
+            },
+            # 工位7 - 质检A（并列）
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "workstation",
+                    "id": 6,
+                    "name": "工位7-质检A",
+                    "status": "idle"
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [90, 30]
+                }
+            },
+            # 工位8 - 质检B（并列）
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "workstation",
+                    "id": 7,
+                    "name": "工位8-质检B",
+                    "status": "idle"
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [90, 10]
+                }
+            },
+            # 工位9 - 包装
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "workstation",
+                    "id": 8,
+                    "name": "工位9-包装",
+                    "status": "idle"
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [105, 20]
+                }
+            },
+            # === 缓冲区定义 ===
+            # 公用缓存区1（工位1后，工位2和3共享）
             {
                 "type": "Feature",
                 "properties": {
                     "type": "buffer",
                     "id": 0,
-                    "name": "缓冲区1",
+                    "name": "公用缓存区1",
                     "capacity": 5,
                     "level": 0
                 },
@@ -148,13 +234,13 @@ async def get_workshop_layout():
                     "coordinates": [20, 20]
                 }
             },
-            # 缓冲区2
+            # 公用缓存区2（工位2和3后，工位4和5共享）
             {
                 "type": "Feature",
                 "properties": {
                     "type": "buffer",
                     "id": 1,
-                    "name": "缓冲区2",
+                    "name": "公用缓存区2",
                     "capacity": 5,
                     "level": 0
                 },
@@ -163,6 +249,52 @@ async def get_workshop_layout():
                     "coordinates": [40, 20]
                 }
             },
+            # 公用缓存区3（工位4和5后，工位6前）
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "buffer",
+                    "id": 2,
+                    "name": "公用缓存区3",
+                    "capacity": 5,
+                    "level": 0
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [60, 20]
+                }
+            },
+            # 缓存区4（工位6后，工位7和8共享）
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "buffer",
+                    "id": 3,
+                    "name": "缓存区4",
+                    "capacity": 5,
+                    "level": 0
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [80, 20]
+                }
+            },
+            # 缓存区5（工位7和8后，工位9前）
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "buffer",
+                    "id": 4,
+                    "name": "缓存区5",
+                    "capacity": 5,
+                    "level": 0
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [97.5, 20]
+                }
+            },
+            # === 区域定义 ===
             # 物料输入区
             {
                 "type": "Feature",
@@ -191,31 +323,131 @@ async def get_workshop_layout():
                 "geometry": {
                     "type": "Polygon",
                     "coordinates": [[
-                        [60, 15],
-                        [70, 15],
-                        [70, 25],
-                        [60, 25],
-                        [60, 15]
+                        [110, 15],
+                        [120, 15],
+                        [120, 25],
+                        [110, 25],
+                        [110, 15]
                     ]]
                 }
             },
-            # 产线路径
+            # === 产线路径（显示工艺流程）===
+            # 主路径
             {
                 "type": "Feature",
                 "properties": {
                     "type": "path",
-                    "name": "生产线路径"
+                    "name": "主生产线路径"
                 },
                 "geometry": {
                     "type": "LineString",
                     "coordinates": [
-                        [5, 20],
-                        [10, 20],
-                        [20, 20],
-                        [30, 20],
-                        [40, 20],
-                        [50, 20],
-                        [60, 20]
+                        [5, 20],    # 原料区出口
+                        [10, 20],   # 工位1
+                        [20, 20],   # 公用缓存区1
+                        [40, 20],   # 公用缓存区2
+                        [60, 20],   # 公用缓存区3
+                        [70, 20],   # 工位6
+                        [80, 20],   # 缓存区4
+                        [97.5, 20], # 缓存区5
+                        [105, 20],  # 工位9
+                        [115, 20]   # 成品区
+                    ]
+                }
+            },
+            # 并列路径 - 粗加工A
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "path",
+                    "name": "粗加工A路径"
+                },
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        [20, 20],   # 公用缓存区1
+                        [30, 30],   # 工位2
+                        [40, 20]    # 公用缓存区2
+                    ]
+                }
+            },
+            # 并列路径 - 粗加工B
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "path",
+                    "name": "粗加工B路径"
+                },
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        [20, 20],   # 公用缓存区1
+                        [30, 10],   # 工位3
+                        [40, 20]    # 公用缓存区2
+                    ]
+                }
+            },
+            # 并列路径 - 精加工A
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "path",
+                    "name": "精加工A路径"
+                },
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        [40, 20],   # 公用缓存区2
+                        [50, 30],   # 工位4
+                        [60, 20]    # 公用缓存区3
+                    ]
+                }
+            },
+            # 并列路径 - 精加工B
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "path",
+                    "name": "精加工B路径"
+                },
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        [40, 20],   # 公用缓存区2
+                        [50, 10],   # 工位5
+                        [60, 20]    # 公用缓存区3
+                    ]
+                }
+            },
+            # 并列路径 - 质检A
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "path",
+                    "name": "质检A路径"
+                },
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        [80, 20],   # 缓存区4
+                        [90, 30],   # 工位7
+                        [97.5, 20]  # 缓存区5
+                    ]
+                }
+            },
+            # 并列路径 - 质检B
+            {
+                "type": "Feature",
+                "properties": {
+                    "type": "path",
+                    "name": "质检B路径"
+                },
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        [80, 20],   # 缓存区4
+                        [90, 10],   # 工位8
+                        [97.5, 20]  # 缓存区5
                     ]
                 }
             }
