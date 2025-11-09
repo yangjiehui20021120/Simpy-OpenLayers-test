@@ -23,19 +23,19 @@ class ProductionLineSimulation:
         self.event_log = []
 
         # 仿真参数
-        self.num_workstations = 3
+        self.num_workstations = 9
         self.buffer_capacity = 5
         self.processing_time_mean = 5.0  # 平均加工时间（秒）
         self.processing_time_std = 1.0   # 加工时间标准差
-        self.arrival_interval = 4.0       # 物料到达间隔（秒）
+        self.arrival_interval = 6.0       # 物料到达间隔（秒）
 
         # 统计数据
         self.stats = {
             'produced': 0,
             'in_system': 0,
-            'workstation_busy': [0, 0, 0],
-            'workstation_idle': [0, 0, 0],
-            'buffer_level': [0, 0],
+            'workstation_busy': [0] * 9,
+            'workstation_idle': [0] * 9,
+            'buffer_level': [0] * 5,
             'queue_time': [],
             'cycle_time': []
         }
@@ -46,23 +46,48 @@ class ProductionLineSimulation:
             for _ in range(self.num_workstations)
         ]
 
-        # 创建缓冲区（工位之间的存储区）
+        # 创建缓冲区（包含公用缓存区）
+        # 缓存区0: 公用缓存区1（工位1后，工位2和3共享）
+        # 缓存区1: 公用缓存区2（工位2和3后，工位4和5共享）
+        # 缓存区2: 公用缓存区3（工位4和5后，工位6前）
+        # 缓存区3: 缓存区4（工位6后，工位7和8共享）
+        # 缓存区4: 缓存区5（工位7和8后，工位9前）
         self.buffers = [
             simpy.Container(self.env, capacity=self.buffer_capacity, init=0)
-            for _ in range(self.num_workstations - 1)
+            for _ in range(5)
         ]
 
         # 工位地图坐标（车间平面坐标，米）
         self.workstation_positions = [
-            (10, 20),   # 工位1
-            (30, 20),   # 工位2
-            (50, 20)    # 工位3
+            (10, 20),   # 工位1 - 预处理
+            (30, 30),   # 工位2 - 粗加工A（上方）
+            (30, 10),   # 工位3 - 粗加工B（下方）
+            (50, 30),   # 工位4 - 精加工A（上方）
+            (50, 10),   # 工位5 - 精加工B（下方）
+            (70, 20),   # 工位6 - 组装
+            (90, 30),   # 工位7 - 质检A（上方）
+            (90, 10),   # 工位8 - 质检B（下方）
+            (105, 20)   # 工位9 - 包装
         ]
 
         self.buffer_positions = [
-            (20, 20),   # 缓冲区1（工位1和2之间）
-            (40, 20)    # 缓冲区2（工位2和3之间）
+            (20, 20),   # 公用缓存区1（工位1后）
+            (40, 20),   # 公用缓存区2（工位2和3后）
+            (60, 20),   # 公用缓存区3（工位4和5后）
+            (80, 20),   # 缓存区4（工位6后）
+            (97.5, 20)  # 缓存区5（工位7和8后）
         ]
+
+        # 定义工艺路线（支持并列工序）
+        # 每个物料会随机选择并列工序中的一条路线
+        self.process_routes = {
+            'stage1': [0],           # 工位1 - 预处理
+            'stage2': [1, 2],        # 工位2或3 - 粗加工（并列）
+            'stage3': [3, 4],        # 工位4或5 - 精加工（并列）
+            'stage4': [5],           # 工位6 - 组装
+            'stage5': [6, 7],        # 工位7或8 - 质检（并列）
+            'stage6': [8]            # 工位9 - 包装
+        }
 
         self.part_counter = 0
 
@@ -102,35 +127,50 @@ class ProductionLineSimulation:
             self.env.process(self.part_process(part_id))
 
     def part_process(self, part_id: str):
-        """物料加工流程"""
+        """物料加工流程 - 支持并列工序和公用缓存区"""
         arrival_time = self.env.now
 
-        for i in range(self.num_workstations):
-            # 如果不是第一个工位，需要从缓冲区取料
-            if i > 0:
+        # 定义工艺路线和对应的缓冲区映射
+        # (stage, buffer_before, buffer_after)
+        process_stages = [
+            ('stage1', None, 0),      # 工位1 → 公用缓存区1
+            ('stage2', 0, 1),          # 公用缓存区1 → 工位2或3 → 公用缓存区2
+            ('stage3', 1, 2),          # 公用缓存区2 → 工位4或5 → 公用缓存区3
+            ('stage4', 2, 3),          # 公用缓存区3 → 工位6 → 缓存区4
+            ('stage5', 3, 4),          # 缓存区4 → 工位7或8 → 缓存区5
+            ('stage6', 4, None)        # 缓存区5 → 工位9 → 完成
+        ]
+
+        for stage_name, buffer_before, buffer_after in process_stages:
+            # 如果需要从缓冲区取料
+            if buffer_before is not None:
                 # 记录在缓冲区等待
                 self.log_event('part_waiting_buffer', {
                     'part_id': part_id,
-                    'buffer_id': i - 1,
-                    'position': list(self.buffer_positions[i - 1]),
+                    'buffer_id': buffer_before,
+                    'position': list(self.buffer_positions[buffer_before]),
                     'status': 'waiting'
                 })
 
                 # 从缓冲区取料
-                yield self.buffers[i - 1].get(1)
-                self.stats['buffer_level'][i - 1] = self.buffers[i - 1].level
+                yield self.buffers[buffer_before].get(1)
+                self.stats['buffer_level'][buffer_before] = self.buffers[buffer_before].level
+
+            # 从该阶段的可选工位中随机选择一个
+            available_workstations = self.process_routes[stage_name]
+            workstation_id = random.choice(available_workstations)
 
             # 请求工位资源
             queue_start = self.env.now
 
             self.log_event('part_queue', {
                 'part_id': part_id,
-                'workstation_id': i,
-                'position': list(self.workstation_positions[i]),
+                'workstation_id': workstation_id,
+                'position': list(self.workstation_positions[workstation_id]),
                 'status': 'queuing'
             })
 
-            with self.workstations[i].request() as req:
+            with self.workstations[workstation_id].request() as req:
                 yield req
 
                 queue_time = self.env.now - queue_start
@@ -145,14 +185,14 @@ class ProductionLineSimulation:
 
                 self.log_event('part_processing', {
                     'part_id': part_id,
-                    'workstation_id': i,
-                    'position': list(self.workstation_positions[i]),
+                    'workstation_id': workstation_id,
+                    'position': list(self.workstation_positions[workstation_id]),
                     'status': 'processing',
                     'duration': processing_time
                 })
 
                 # 更新工位忙碌状态
-                self.stats['workstation_busy'][i] += processing_time
+                self.stats['workstation_busy'][workstation_id] += processing_time
 
                 # 加工过程
                 yield self.env.timeout(processing_time)
@@ -160,22 +200,22 @@ class ProductionLineSimulation:
                 # 记录完成加工
                 self.log_event('part_completed_station', {
                     'part_id': part_id,
-                    'workstation_id': i,
-                    'position': list(self.workstation_positions[i]),
+                    'workstation_id': workstation_id,
+                    'position': list(self.workstation_positions[workstation_id]),
                     'status': 'completed'
                 })
 
-            # 如果不是最后一个工位，放入下一个缓冲区
-            if i < self.num_workstations - 1:
-                yield self.buffers[i].put(1)
-                self.stats['buffer_level'][i] = self.buffers[i].level
+            # 如果需要放入缓冲区
+            if buffer_after is not None:
+                yield self.buffers[buffer_after].put(1)
+                self.stats['buffer_level'][buffer_after] = self.buffers[buffer_after].level
 
                 self.log_event('part_in_buffer', {
                     'part_id': part_id,
-                    'buffer_id': i,
-                    'position': list(self.buffer_positions[i]),
+                    'buffer_id': buffer_after,
+                    'position': list(self.buffer_positions[buffer_after]),
                     'status': 'in_buffer',
-                    'buffer_level': self.buffers[i].level
+                    'buffer_level': self.buffers[buffer_after].level
                 })
 
         # 所有工位完成
@@ -186,7 +226,7 @@ class ProductionLineSimulation:
 
         self.log_event('part_finished', {
             'part_id': part_id,
-            'position': [60, 20],  # 成品区
+            'position': [115, 20],  # 成品区（调整坐标）
             'status': 'finished',
             'cycle_time': cycle_time
         })
