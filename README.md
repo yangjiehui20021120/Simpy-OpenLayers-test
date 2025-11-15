@@ -64,7 +64,10 @@
 ### 前置要求
 
 - Python 3.8+
+- Node.js (LTS 版本，推荐使用 v20.x)
 - 现代浏览器（Chrome, Firefox, Edge）
+
+> 💡 **Node.js 更新**: 如需更新 Node.js 到最新稳定版，请运行 `.\update_node.ps1` 或 `.\update_node.bat`，或查看 [NODE_UPDATE_GUIDE.md](NODE_UPDATE_GUIDE.md) 获取详细说明。
 
 ### 安装依赖
 

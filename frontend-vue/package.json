@@ -1,0 +1,22 @@
+{
+  "name": "simpy-openlayers-vue3",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "SimPy-OpenLayers生产线仿真可视化系统 - Vue3版本",
+  "author": "Your Name",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "ol": "^8.2.0",
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "vite": "^5.0.0"
+  }
+}
